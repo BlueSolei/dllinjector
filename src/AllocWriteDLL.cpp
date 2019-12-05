@@ -7,6 +7,7 @@
 */
 #include "LoadLibraryR.h"
 #include <stdio.h>
+#include <fmt/core.h>
 
 LPTHREAD_START_ROUTINE AllocWriteDLL(HANDLE hTargetProcHandle, LPCSTR dllPath) {
 	HANDLE hFile          = NULL;
@@ -42,7 +43,7 @@ LPTHREAD_START_ROUTINE AllocWriteDLL(HANDLE hTargetProcHandle, LPCSTR dllPath) {
 
 	lpDllAddr = VirtualAllocEx(hTargetProcHandle, NULL, dwLength, MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
-	printf("\t\t[+] Writing into the current process space at 0x%08x\n", lpDllAddr);
+	fmt::print("\t\t[+] Writing into the current process space at {:0x%08x}\n", lpDllAddr);
 
 	if (WriteProcessMemory(hTargetProcHandle, lpDllAddr, lpWriteBuff, dwLength, NULL) == 0) {
 		printf("\n[!] WriteProcessMemory Failed [%u]\n", GetLastError());
@@ -73,7 +74,7 @@ LPTHREAD_START_ROUTINE AllocWritePath(HANDLE hTargetProcHandle, LPCSTR dllPath, 
 
 	lpDllAddr = VirtualAllocEx(hTargetProcHandle, NULL, strlen(dllPath), MEM_RESERVE|MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 
-	printf("\t\t[+] Writing into the current process space at 0x%08x\n", lpDllAddr);
+	fmt::print("\t\t[+] Writing into the current process space at 0x{:08x}\n", (std::size_t)lpDllAddr);
 	if (WriteProcessMemory(hTargetProcHandle, lpDllAddr, dllPath, strlen(dllPath), NULL) == 0) {
 		printf("\n[!] WriteProcessMemory Failed [%u]\n", GetLastError());
 		return NULL;
@@ -87,7 +88,7 @@ LPTHREAD_START_ROUTINE AllocWritePath(HANDLE hTargetProcHandle, LPCSTR dllPath, 
 		printf("\n[!] Failed to find LoadLibrary in Kernel32! Quiting...\n");
 		return NULL;
 	}
-	printf("\t\t[+] Found at 0x%08x\n",loadLibAddr);
+	fmt::print("\t\t[+] Found at 0x{:08x}\n", (std::size_t)loadLibAddr);
 
 	return (LPTHREAD_START_ROUTINE) loadLibAddr;
 	

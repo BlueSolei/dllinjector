@@ -1,0 +1,9 @@
+Debug/
+Release/
+.vs/
+
+src/conanbuildinfo.props
+src/conanbuildinfo.txt
+src/conaninfo.txt
+src/dllInject.vcxproj.user
+src/graph_info.json

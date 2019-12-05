@@ -16,6 +16,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <tlhelp32.h>
+#include <fmt/core.h>
 #include "ExecThread.h"
 #include "AllocWriteDLL.h"
 
@@ -118,7 +119,7 @@ VOID suspendInjectResume(HANDLE hHandle, LPVOID loadLibAddr, LPVOID dllPathAddr)
 	printf("\t\tEIP[0x%08x] ESP[0x%08x] EBP[0x%08x]\n", ctx.Eip, ctx.Esp, ctx.Ebp);
 
 	scAddr = VirtualAllocEx(hHandle, NULL, 17, MEM_COMMIT, PAGE_EXECUTE_READWRITE);
-	printf("\t[+] Allocating 17 bytes for our Launcher Code [0x%08x][%d]\n", scAddr, GetLastError());
+	fmt::print("\t[+] Allocating 17 bytes for our Launcher Code [{:0x%08x}][{}]\n", scAddr, GetLastError());
 
 	printf ("\t[+] Writing Launcher Code into targetThread [%d]\n", WriteProcessMemory(hHandle, scAddr, (LPCVOID)sc, 17, NULL));
 

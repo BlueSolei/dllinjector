@@ -44,6 +44,10 @@
 #include "ExecThread.h"
 #include "AllocWriteDLL.h"
 
+#include "Win32Error.h"
+#include <exception>
+#include <fmt/core.h>
+
 #pragma comment(lib,"Advapi32.lib")
 
 #define VERSION 0.2
@@ -79,22 +83,34 @@ HANDLE attachToProcess(DWORD procID) {
 	if (GetVersionEx(&osver)) {	
 		if (osver.dwMajorVersion == 5) {
 			printf("\t[+] Detected Windows XP\n");
-			return OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, 0, procID );
+			auto process = OpenProcess( PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_READ | PROCESS_VM_WRITE | PROCESS_CREATE_THREAD, 0, procID );
+			if (!process) throw std::runtime_error(fmt::format("[!] ERROR: Could not Attach to Process!!. error: {}", CWin32Error()));
+			return process;
 		}
-		if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 0) {
+		else if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 0) {
 			printf("\t[+] Detected Windows Vista\n");
-			return NULL;
+			throw std::runtime_error("[!] Windows Vista is not supported");
 		}
-		if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 1)	{
+		else if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 1)	{
 			printf("\t[+] Detected Windows 7\n");
 			printf("\t[+] Attaching to Process ID: %d\n", procID);
-			return OpenProcess( PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, procID );
+			auto process = OpenProcess( PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, procID );
+			if (!process) throw std::runtime_error(fmt::format("[!] ERROR: Could not Attach to Process!!. error: {}", CWin32Error()));
+			return process;
+		}
+		else if (osver.dwMajorVersion == 6 && osver.dwMinorVersion == 2) {
+			printf("\t[+] Detected Windows 8 or later, or its a console app\n");
+			printf("\t[+] Attaching to Process ID: %d\n", procID);
+			auto process = OpenProcess(PROCESS_CREATE_THREAD | PROCESS_QUERY_INFORMATION | PROCESS_VM_OPERATION | PROCESS_VM_WRITE | PROCESS_VM_READ, FALSE, procID);
+			if (!process) throw std::runtime_error(fmt::format("[!] ERROR: Could not Attach to Process!!. error: {}", CWin32Error()));
+			return process;
 		}
 	} else {
-		printf("\n[!] Could not detect OS version\n");
+		throw std::runtime_error("[!] Could not detect OS version");
 	}
 	return NULL;
 }
+
 int injectDLL(HANDLE hTargetProcHandle, unsigned int injectMethod, LPTHREAD_START_ROUTINE lpStartExecAddr, LPVOID lpExecParam) {
 	HANDLE rThread = NULL;
 
@@ -117,7 +133,7 @@ int injectDLL(HANDLE hTargetProcHandle, unsigned int injectMethod, LPTHREAD_STAR
 				return -1;
 			} 
 			printf("\t[+] Remote Thread created! [%d]\n", GetLastError());
-			WaitForSingleObject(rThread, INFINITE);
+			// WaitForSingleObject(rThread, INFINITE); // \todo shaul chcek this 
 			break;
 		case 3: // Suspend/Inject/Resume
 			printf("\n[+] Using the Suspend/Inject/Resume Method to Create Thread\n");
@@ -195,7 +211,20 @@ void help( char *processname ) {
 	
 }
 
-int main( int argc, char *argv[] ) {
+int mainImpl(int argc, char *argv[]);
+
+int main(int argc, char *argv[]) {
+	try
+	{
+		mainImpl(argc, argv);
+	}
+	catch (std::exception& e)
+	{
+		fmt::print("Injection failed. {}\n", e.what());
+	}
+}
+
+int mainImpl( int argc, char *argv[] ) {
 	DWORD dwPid = 0;
 	DWORD dwInjectMethod=1;
 	DWORD dwAllocMethod=1;
@@ -263,10 +292,6 @@ int main( int argc, char *argv[] ) {
 
 	// Attach to process with OpenProcess()
 	hTargetProcHandle = attachToProcess(dwPid);
-	if(hTargetProcHandle == NULL) {
-		printf("\n[!] ERROR: Could not Attach to Process!!\n");
-		return -1;
-	}
 	
 	// Copy the DLL via allocMethod
 	switch(dwAllocMethod) {
